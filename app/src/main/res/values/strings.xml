@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">Music Player</string>
+    <string name="the_title">the title</string>
+    <string name="artist">artist</string>
+    <string name="cover">cover</string>
+    <string name="todo">TODO</string>
+    <string name="play">play</string>
+    <string name="next">next</string>
+    <string name="prev">prev</string>
+</resources>
