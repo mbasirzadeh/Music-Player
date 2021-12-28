@@ -21,17 +21,13 @@ public class SongsFragment extends Fragment implements MusicAdapterRecyclerView.
     RecyclerView recyclerView;
     MusicAdapterRecyclerView adapter;
     Music music;
-    public static List<Music> musicList=new ArrayList<>();
+    public List<Music> musicList=new ArrayList<>();
     public OnMusicClick musicClick;
 
     public SongsFragment(OnMusicClick musicClick) {
         this.musicClick=musicClick;
     }
 
-    @Override
-    public void onAttach(@NonNull Context context) {
-        super.onAttach(context);
-    }
 
     @Nullable
     @Override
@@ -56,18 +52,16 @@ public class SongsFragment extends Fragment implements MusicAdapterRecyclerView.
         recyclerView.setItemViewCacheSize(20);
     }
 
-    @Override
-    public void onResume() {
-        super.onResume();
 
-    }
-
+    //music has gotten from adapter to songs fragment
     @Override
     public void OnItemClickListener(Music music) {
         musicClick.OnMusicClickListener(music);
+
     }
 
     public interface OnMusicClick{
         void OnMusicClickListener(Music music);
     }
+
 }

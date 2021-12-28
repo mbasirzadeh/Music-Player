@@ -26,10 +26,12 @@ import java.util.Objects;
 import static java.util.Objects.*;
 
 public class MusicAdapterRecyclerView extends RecyclerView.Adapter<MusicAdapterRecyclerView.MusicBinding> {
+
     public static List<Music> musicList = new ArrayList<>();
     private Context context;
     public static OnItemClick musicClick;
     public static int playingMusic;
+
     public MusicAdapterRecyclerView(Context context,OnItemClick musicClick) {
         this.context=context;
         this.musicClick=musicClick;
@@ -62,7 +64,7 @@ public class MusicAdapterRecyclerView extends RecyclerView.Adapter<MusicAdapterR
         holder.title.setText(musicList.get(position).getName());
         holder.artist.setText(musicList.get(position).getArtistName());
         holder.duration.setText(getMinSecDuration(musicList.get(position).getDuration()));
-        Glide.with(context).load(UpdateCoverThread.covers.get(position)).centerCrop().placeholder(R.drawable.music_picture).error(R.drawable.music_picture).dontAnimate().priority(Priority.LOW).into(holder.cover);
+        Glide.with(context).load(MainActivity.covers.get(position)).centerCrop().placeholder(R.drawable.music_picture).error(R.drawable.music_picture).dontAnimate().priority(Priority.LOW).into(holder.cover);
 //        if (position==playingMusic){
 //            holder.title.setTextColor(context.getResources().getColor(R.color.selectedItemColor));
 //            holder.artist.setTextColor(context.getResources().getColor(R.color.selectedItemColor));
@@ -72,11 +74,6 @@ public class MusicAdapterRecyclerView extends RecyclerView.Adapter<MusicAdapterR
 //        }
     }
 
-    @Override
-    public void onAttachedToRecyclerView(@NonNull RecyclerView recyclerView) {
-        super.onAttachedToRecyclerView(recyclerView);
-
-    }
 
     public  class MusicBinding extends RecyclerView.ViewHolder {
         public ConstraintLayout mContainer;
@@ -94,7 +91,7 @@ public class MusicAdapterRecyclerView extends RecyclerView.Adapter<MusicAdapterR
             itemView.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    musicClick.OnItemClickListener(musicList.get(getAdapterPosition()));
+                    musicClick.OnItemClickListener(musicList.get(getAbsoluteAdapterPosition()));
 //                    title.setTextColor(context.getResources().getColor(R.color.selectedItemColor));
 //                    artist.setTextColor(context.getResources().getColor(R.color.selectedItemColor));
                 }
@@ -116,16 +113,20 @@ public class MusicAdapterRecyclerView extends RecyclerView.Adapter<MusicAdapterR
 
     //get duration Min & Sec
     public static String getMinSecDuration(String duration){
-        long milliseconds = Integer.parseInt(duration);
-        long clock = (milliseconds / 1000) / 3600;
-        long minutes = (milliseconds / 1000) / 60;
-        long seconds = (milliseconds / 1000) % 60;
-        int seconds1= (int) (seconds/10);
-        String seconds2=seconds1+"";
-        if (seconds2.startsWith("0")){
-            return (minutes + ":0" + seconds);
+        if (duration!=null){
+            long milliseconds = Integer.parseInt(duration);
+            long clock = (milliseconds / 1000) / 3600;
+            long minutes = (milliseconds / 1000) / 60;
+            long seconds = (milliseconds / 1000) % 60;
+            int seconds1= (int) (seconds/10);
+            String seconds2=seconds1+"";
+            if (seconds2.startsWith("0")){
+                return (minutes + ":0" + seconds);
+            }
+            return (minutes + ":" + seconds);
         }
-        return (minutes + ":" + seconds);
+        return "00:00";
+
     }
 
     public interface OnItemClick{

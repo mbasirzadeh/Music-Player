@@ -4,69 +4,66 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.ActivityManager;
 import android.content.pm.PackageManager;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.util.Log;
-import android.view.DragEvent;
-import android.view.Gravity;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.SeekBar;
 import android.widget.TextView;
-
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.AppCompatSeekBar;
 import androidx.constraintlayout.motion.widget.MotionLayout;
 import androidx.viewpager.widget.ViewPager;
-
 import com.bumptech.glide.Glide;
 import com.google.android.material.tabs.TabLayout;
-
 import org.jetbrains.annotations.NotNull;
-
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.Timer;
 import java.util.TimerTask;
 
 public class MainActivity extends AppCompatActivity  implements SongsFragment.OnMusicClick {
+
     private ViewPager viewPager;
     private TabLayout tabLayout;
     TextView txt_title,txt_artist,txt_dur,txt_whole_dur;
     ImageView img_play,img_cover,img_next,img_prev;
     MotionLayout motionLayout;
     AppCompatSeekBar seekBar;
-    UpdateCoverThread updateCoverThread=new UpdateCoverThread();
+    UpdateCoverThread updateCoverThread=new UpdateCoverThread(this);
     MediaPlayer mediaPlayer;
     Timer timer=new Timer();
+    public static List<byte[]> covers=new ArrayList<>();
+
     //0=playing 1=pause
     int playInt=0;
+    //0=onStopTrackingTouch 1=onStartTrackingTouch
+    int seekBarState =0;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        intiViews();
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && isPerDenied()) {
-            requestPermissions(PERMISSIONS, REQUEST_PERMISSION);
-            return;
-        }
-        //after request
+        intiViews();
+        checkMyPermissions();
+
+        //after request permissions
         ViewPagerAdapter viewPagerAdapter = new ViewPagerAdapter(getSupportFragmentManager());
         viewPagerAdapter.addFragment(new SongsFragment(this), "Songs");
         viewPager.setAdapter(viewPagerAdapter);
         tabLayout.setupWithViewPager(viewPager);
 
+
+
+
         updateCoverThread.getMusicList(new Music(this).getAllMusics());
         updateCoverThread.start();
-
-
 
 
     }
@@ -102,8 +99,6 @@ public class MainActivity extends AppCompatActivity  implements SongsFragment.On
         }
         return false;
     }
-
-
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         if (requestCode == REQUEST_PERMISSION) {
@@ -117,7 +112,6 @@ public class MainActivity extends AppCompatActivity  implements SongsFragment.On
             super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         }
     }
-
     public boolean hasAllPermissionsGranted(@NonNull int[] grantResults) {
         for (int grantResult : grantResults) {
             if (grantResult == PackageManager.PERMISSION_DENIED) {
@@ -126,20 +120,24 @@ public class MainActivity extends AppCompatActivity  implements SongsFragment.On
         }
         return true;
     }
+    public void checkMyPermissions(){
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && isPerDenied()) {
+            requestPermissions(PERMISSIONS, REQUEST_PERMISSION);
+            return;
+        }
+    }
+    //.
 
-
+    //music has gotten from songsFragment
     @Override
     public void OnMusicClickListener(Music music) {
         onVoidMusic(music);
     }
 
-    private void onVoidMusic(Music music) {
-        //
-
-
+    private void onVoidMusic(@NotNull Music music) {
 
         motionLayout.transitionToEnd();
-        byte[] cover=UpdateCoverThread.covers.get(music.getId());
+        byte[] cover=MainActivity.covers.get(music.getId());
         if (cover==null){
             Glide.with(MainActivity.this).load(R.drawable.music_picture).override(2000).placeholder(R.drawable.black).useAnimationPool(true).into(img_cover);
         }else{
@@ -165,20 +163,24 @@ public class MainActivity extends AppCompatActivity  implements SongsFragment.On
         });
         seekBar.setMax(mediaPlayer.getDuration());
 
+
+        Handler handler=new Handler(Looper.getMainLooper());
         timer.schedule(new TimerTask() {
             @Override
             public void run() {
 
-                new Handler(Looper.getMainLooper()).post(new Runnable() {
+                handler.post(new Runnable() {
                     @Override
                     public void run() {
-                        if (seekBar.isFocusableInTouchMode()){
 
-                        }else {
-                            seekBar.setProgress(mediaPlayer.getCurrentPosition());
+                        if (seekBarState!=1){
+                            if (!seekBar.isFocusableInTouchMode()){
+                                seekBar.setProgress(mediaPlayer.getCurrentPosition());
+                            }
+
+                            txt_dur.setText(MusicAdapterRecyclerView.getMinSecDuration(mediaPlayer.getCurrentPosition()+""));
                         }
 
-                        txt_dur.setText(MusicAdapterRecyclerView.getMinSecDuration(mediaPlayer.getCurrentPosition()+""));
                     }
                 });
             }
@@ -195,16 +197,16 @@ public class MainActivity extends AppCompatActivity  implements SongsFragment.On
 
             @Override
             public void onStartTrackingTouch(SeekBar seekBar) {
-
+                seekBarState=1;
             }
 
             @Override
             public void onStopTrackingTouch(SeekBar seekBar) {
+                seekBarState=0;
                 mediaPlayer.seekTo(seekBar.getProgress());
+
             }
         });
-
-
         img_play.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -235,9 +237,14 @@ public class MainActivity extends AppCompatActivity  implements SongsFragment.On
                 goPrev(music);
             }
         });
+        mediaPlayer.setOnCompletionListener(new MediaPlayer.OnCompletionListener() {
+            @Override
+            public void onCompletion(MediaPlayer mp) {
+                onVoidMusic(MusicAdapterRecyclerView.musicList.get(music.getId()+1));
+            }
+        });
+
     }
-
-
     private void goNext(@NotNull Music music) {
         int musicIndex=music.getId();
         onVoidMusic(MusicAdapterRecyclerView.musicList.get(musicIndex+1));
@@ -247,4 +254,13 @@ public class MainActivity extends AppCompatActivity  implements SongsFragment.On
         onVoidMusic(MusicAdapterRecyclerView.musicList.get(musicIndex-1));
     }
 
+
+    @Override
+    public void onBackPressed() {
+        if (motionLayout.getCurrentState()==motionLayout.getEndState()){
+            motionLayout.transitionToStart();
+        }else {
+            super.onBackPressed();
+        }
+    }
 }
