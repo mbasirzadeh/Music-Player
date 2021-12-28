@@ -3,17 +3,26 @@ package com.example.musicplayer;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.ActivityManager;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.media.AudioFocusRequest;
+import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 import android.view.View;
 import android.widget.ImageView;
 import android.widget.SeekBar;
 import android.widget.TextView;
+import android.widget.Toast;
+
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.AppCompatSeekBar;
@@ -28,7 +37,7 @@ import java.util.Objects;
 import java.util.Timer;
 import java.util.TimerTask;
 
-public class MainActivity extends AppCompatActivity  implements SongsFragment.OnMusicClick {
+public class MainActivity extends AppCompatActivity  implements SongsFragment.OnMusicClick, AudioManager.OnAudioFocusChangeListener  {
 
     private ViewPager viewPager;
     private TabLayout tabLayout;
@@ -40,6 +49,9 @@ public class MainActivity extends AppCompatActivity  implements SongsFragment.On
     MediaPlayer mediaPlayer;
     Timer timer=new Timer();
     public static List<byte[]> covers=new ArrayList<>();
+    AudioManager audioManager;
+    BroadCastNoisy broadCastNoisy;
+
 
     //0=playing 1=pause
     int playInt=0;
@@ -59,9 +71,7 @@ public class MainActivity extends AppCompatActivity  implements SongsFragment.On
         viewPager.setAdapter(viewPagerAdapter);
         tabLayout.setupWithViewPager(viewPager);
 
-
-
-
+        
         updateCoverThread.getMusicList(new Music(this).getAllMusics());
         updateCoverThread.start();
 
@@ -81,6 +91,10 @@ public class MainActivity extends AppCompatActivity  implements SongsFragment.On
         img_play=(ImageView)findViewById(R.id.play);
         seekBar=(AppCompatSeekBar)findViewById(R.id.slider);
         motionLayout=(MotionLayout)findViewById(R.id.constraint);
+
+        audioManager= (AudioManager) this.getSystemService(Context.AUDIO_SERVICE);
+        broadCastNoisy=new BroadCastNoisy();
+
     }
 
 
@@ -155,12 +169,8 @@ public class MainActivity extends AppCompatActivity  implements SongsFragment.On
             mediaPlayer.release();
         }
         mediaPlayer= android.media.MediaPlayer.create(getApplicationContext(), Uri.parse(music.getPath()));
-        mediaPlayer.setOnPreparedListener(new android.media.MediaPlayer.OnPreparedListener() {
-            @Override
-            public void onPrepared(android.media.MediaPlayer mp) {
-                mediaPlayer.start();
-            }
-        });
+        playMusic();
+
         seekBar.setMax(mediaPlayer.getDuration());
 
 
@@ -213,12 +223,12 @@ public class MainActivity extends AppCompatActivity  implements SongsFragment.On
                 switch (playInt){
                     case 0:
                         Glide.with(MainActivity.this).load(R.drawable.play).useAnimationPool(true).into(img_play);
-                        mediaPlayer.pause();
+                        pauseMusic();
                         playInt++;
                         break;
                     case 1:
                         Glide.with(MainActivity.this).load(R.drawable.pause_button).useAnimationPool(true).into(img_play);
-                        mediaPlayer.start();
+                        playMusic();
                         playInt--;
                         break;
 
@@ -263,4 +273,47 @@ public class MainActivity extends AppCompatActivity  implements SongsFragment.On
             super.onBackPressed();
         }
     }
+
+
+
+    @Override
+    public void onAudioFocusChange(int focusChange) {
+        switch (focusChange){
+            case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT:
+                //LOW vlm
+                break;
+            case AudioManager.AUDIOFOCUS_GAIN:
+            case AudioManager.AUDIOFOCUS_LOSS:
+                img_play.performClick();
+                break;
+
+        }
+    }
+
+    public void playMusic(){
+        IntentFilter intentFilterNoisy=new IntentFilter();
+        intentFilterNoisy.addAction(AudioManager.ACTION_AUDIO_BECOMING_NOISY);
+        registerReceiver(broadCastNoisy,intentFilterNoisy);
+        int resultRequestAudioFocus=audioManager.requestAudioFocus(MainActivity.this,AudioManager.STREAM_MUSIC,AudioManager.AUDIOFOCUS_GAIN);
+        if (resultRequestAudioFocus==AudioManager.AUDIOFOCUS_REQUEST_GRANTED){
+            mediaPlayer.start();
+        }
+    }
+
+
+    public void pauseMusic(){
+        mediaPlayer.pause();
+        audioManager.abandonAudioFocus(this);
+        unregisterReceiver(broadCastNoisy);
+    }
+
+
+    //
+    class BroadCastNoisy extends BroadcastReceiver{
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            img_play.performClick();
+        }
+    }
+
 }
